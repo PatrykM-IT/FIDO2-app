@@ -237,21 +237,6 @@ app.post('/verify-authentication', async (req, res) => {
 
 });
 
-app.post('/delete-user', (req, res) => {
-  const username = req.body.username;
-  const sql = 'DELETE FROM users WHERE username = ?';
-  db.query(sql, [username], (err, result) => {
-    if (err) {
-      console.error('Error deleting user:', err);
-      res.status(500).send('Error deleting user from the database');
-    } else {
-      console.log('User deleted:', username);
-      res.sendStatus(200); // Send a success status code
-    }
-  });
-});
-
-
 app.post("/generate-registration-options", async (req, res) => {
   try {
     db.beginTransaction((err) => {
@@ -328,10 +313,8 @@ app.post("/generate-registration-options", async (req, res) => {
 });
 
 app.post('/verify-registration', async (req, res) => {
-  //console.log(`Received data from key: ${JSON.stringify(req.body)}`);
-  //console.log("Username in verify-registration: "+req.session.username);
   const user = req.session.username;
-  const sql = 'SELECT id,currentChallenge FROM users WHERE username = ?';
+  const sql = 'SELECT id, currentChallenge FROM users WHERE username = ?';
 
   try {
     const rows = await new Promise((resolve, reject) => {
@@ -343,10 +326,9 @@ app.post('/verify-registration', async (req, res) => {
         resolve(rows);
       });
     });
-    //console.log('Results from database when asked for current challenge:', rows);
+
     const user_id = rows[0].id;
     const expectedChallenge = rows[0].currentChallenge;
-  
 
     const { body } = req;
 
@@ -362,19 +344,21 @@ app.post('/verify-registration', async (req, res) => {
       console.error(error);
       return res.status(400).send({ error: error.message });
     }
-    
-    const { registrationInfo } = verification;
-    const { credentialPublicKey, counter, credentialDeviceType,  credentialBackedUp, } = registrationInfo;
 
+    const { verified, registrationInfo } = verification;
 
-    //// SQL: Encode to base64url then store as `TEXT`.
-    const base64UrlCredentialID = Buffer.from(registrationInfo.credentialID).toString('base64')
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-    const base64UrlCredentialIDdb = base64UrlCredentialID;   
-    //console.log('base64UrlCredentialIDdb:', base64UrlCredentialIDdb);
+    if (!verified) {
+      return res.status(400).send({ error: 'Registration verification failed' });
+    }
 
+    const { credentialPublicKey, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
+
+    const base64UrlCredentialID = Buffer.from(registrationInfo.credentialID)
+      .toString('base64')
+      .replace(/=/g, '')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_');
+    const base64UrlCredentialIDdb = base64UrlCredentialID;
 
     const base64 = base64UrlCredentialID.replace(/-/g, '+').replace(/_/g, '/');
     const binaryStr = atob(base64);
@@ -384,30 +368,46 @@ app.post('/verify-registration', async (req, res) => {
     }
     const TESTcredentialID = bytes;
 
-    console.log("Sprawdzenie poprawności zmiany z base64 ",TESTcredentialID)
-    
-    
-    // Insert a new authenticator record for the user
+    console.log('Sprawdzenie poprawności zmiany z base64 ', TESTcredentialID);
+
     const sql3 = "INSERT INTO authenticators (credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp, transports, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
-    //const values = [base64UrlCredentialIDdb, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp, null, user.id];
-    const values = [base64UrlCredentialIDdb, Buffer.from(credentialPublicKey.buffer, credentialPublicKey.byteOffset, credentialPublicKey.byteLength), counter, credentialDeviceType, credentialBackedUp, null, user_id];
+    const values = [
+      base64UrlCredentialIDdb,
+      Buffer.from(credentialPublicKey.buffer, credentialPublicKey.byteOffset, credentialPublicKey.byteLength),
+      counter,
+      credentialDeviceType,
+      credentialBackedUp,
+      null,
+      user_id,
+    ];
+
     db.query(sql3, values, (err, result) => {
       if (err) {
         console.error('Error executing query:', err);
+        return res.status(500).send('Error registering user with password');
       } else {
         console.log('Database INSERT to auth table result:', result);
-        //res.json(result);
+        return res.send({ verified });
       }
     });
-
-    const { verified } = verification;
-    console.log('VERIFICATION DATA:', verification);
-    return res.send({ verified });
-
   } catch (err) {
     console.error('Weryfikacja nie powiodła się:', err);
-    return;
-  } 
+    return res.status(500).send('Error registering user with password');
+  }
+});
+
+app.post('/delete-user', (req, res) => {
+  const username = req.body.username;
+  const sql = 'DELETE FROM users WHERE username = ?';
+  db.query(sql, [username], (err, result) => {
+    if (err) {
+      console.error('Error deleting user:', err);
+      res.status(500).send('Error deleting user from the database');
+    } else {
+      console.log('User deleted:', username);
+      res.sendStatus(200); // Send a success status code
+    }
+  });
 });
 
 function checkAuthenticated(req, res, next){
