@@ -140,9 +140,8 @@ app.get("/generate-authentication-options", async (req, res) => {
       const options = generateAuthenticationOptions({
         allowCredentials,
         timeout: 60000,
-        userVerification: 'required',
+        userVerification: 'discouraged',
         rpID,
-        extensions,
       });
     
       // Process the results and generate authentication options
@@ -167,6 +166,12 @@ app.get("/generate-authentication-options", async (req, res) => {
 app.post('/verify-authentication', async (req, res) => {
   //console.log(`Received data from key: ${JSON.stringify(req.body)}`);
   //console.log("Username in verify-registration: "+req.session.username);
+
+  if (!req.user) {
+    return res.status(401).send('User not authenticated');
+  }
+  const { id } = req.user;
+
   const { body } = req;
 
   const sql = 'SELECT id, currentChallenge FROM users WHERE id = ?';
@@ -219,6 +224,7 @@ app.post('/verify-authentication', async (req, res) => {
         expectedOrigin: origin,
         expectedRPID: rpID,
         authenticator: { credentialID, credentialPublicKey },
+        requireUserVerification: false,
       });
     } catch (error) {
       console.error(error);
@@ -230,7 +236,7 @@ app.post('/verify-authentication', async (req, res) => {
     return res.send({ verified });
   
   } catch (err) {
-    console.error('Weryfikacja nie powiodła się:', err);
+    console.error('Weryfikacja nie powiodła się:'+ err);
     return;
   }
     
@@ -271,6 +277,13 @@ app.post("/generate-registration-options", async (req, res) => {
                 userID: user.id,
                 userName: user.username,
                 attestationType: "direct",
+                //authenticatorSelection: userVerification = "discouraged",
+                authenticatorSelection: 
+                {
+                  residentKey: "preferred",
+                  userVerification: 'discouraged',
+                  requireResidentKey: false
+                },
                 excludeCredentials: userAuthenticators.map((authenticator) => ({
                   id: authenticator.credentialID,
                   type: "public-key",
@@ -339,6 +352,7 @@ app.post('/verify-registration', async (req, res) => {
         expectedChallenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
+        requireUserVerification: false,
       });
     } catch (error) {
       console.error(error);
