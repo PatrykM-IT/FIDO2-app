@@ -35,7 +35,6 @@ const db = mysql.createConnection({
     database: "test_fido",
   });
 
-
 db.connect((err) => {
     if (err) {
         console.log(err);
@@ -96,8 +95,11 @@ app.delete('/logout', (req, res) => {
 
 
 app.get("/generate-authentication-options", async (req, res) => {
-  console.log(`Fetch is working`);
-  const { id, username } = req.user;
+
+  if (!req.user) {
+    return res.status(401).send('User not authenticated');
+  }
+  const { id } = req.user;
 
   // Query the authenticators table to fetch user's authenticators
   db.query(
@@ -116,8 +118,8 @@ app.get("/generate-authentication-options", async (req, res) => {
         transports: row.transports ? JSON.parse(row.transports) : []
       }));
       
-      console.log('credentialID values:', authenticators.map(authenticator => authenticator.credentialID));
-      console.log('credentialID values:', authenticators.map(authenticator => authenticator.id));
+      console.log('Authenticator credentialID values:', authenticators.map(authenticator => authenticator.credentialID));
+      console.log('Authenticator ID values:', authenticators.map(authenticator => authenticator.id));
       
         const allowCredentials = authenticators.map(authenticator => {
         const base64UrlCredentialID = authenticator.credentialID.replace(/-/g, '+').replace(/_/g, '/');
@@ -134,11 +136,13 @@ app.get("/generate-authentication-options", async (req, res) => {
           transports: authenticator.transports,
         };
       });
-      
+
       const options = generateAuthenticationOptions({
         allowCredentials,
+        timeout: 60000,
         userVerification: 'required',
         rpID,
+        extensions,
       });
     
       // Process the results and generate authentication options
@@ -150,7 +154,7 @@ app.get("/generate-authentication-options", async (req, res) => {
         if (err) {
           res.status(500).send("Error updating current challenge");
         } else {
-          console.log(`Fetch end`);
+          console.log(`Wygenerowane opcje:`);
           res.json(options);
           console.log(options)
         }
@@ -164,10 +168,6 @@ app.post('/verify-authentication', async (req, res) => {
   //console.log(`Received data from key: ${JSON.stringify(req.body)}`);
   //console.log("Username in verify-registration: "+req.session.username);
   const { body } = req;
-  const { id, username } = req.user;
-  const user = username
-  console.log(id)
-  console.log(username)
 
   const sql = 'SELECT id, currentChallenge FROM users WHERE id = ?';
   try {
