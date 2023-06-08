@@ -67,9 +67,11 @@
           })
           
           if (!response.ok) {
-            resultDiv.innerHTML = `Error: ${await response.text()}`;
-            throw new Error('Network response was not ok');
+            const errorText = await response.text();
+            resultDiv.innerHTML = `${errorText}`;
+            throw new Error('Nie udało się utworzyć konta');
           }
+          
           const data = await response.json(); // Parse the response data as JSON
         
           // Log the response data returned by the server
@@ -105,11 +107,28 @@
             )}</pre>`;
           }
         
-
-          
         } catch (error) {
           console.error(error);
-          resultDiv.innerHTML = 'Error registering user';
+          resultDiv.innerHTML = 'Error: ' + error;
+          // Send a request to the server to remove the user from the database
+          try {
+            const username = event.target.elements.username.value;
+            const deleteResp = await fetch('/delete-user', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ username }),
+            });
+            if (!deleteResp.ok) {
+              throw new Error('Failed to delete user from the database');
+            }
+            // Handle the successful deletion response
+            console.log('User ' + username + ' deleted from the database');
+          } catch (deleteError) {
+            console.error(deleteError);
+            // Handle the error when failed to delete user from the database
+          }        
         }
       });
 

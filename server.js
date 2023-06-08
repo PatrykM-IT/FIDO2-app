@@ -237,53 +237,95 @@ app.post('/verify-authentication', async (req, res) => {
 
 });
 
+app.post('/delete-user', (req, res) => {
+  const username = req.body.username;
+  const sql = 'DELETE FROM users WHERE username = ?';
+  db.query(sql, [username], (err, result) => {
+    if (err) {
+      console.error('Error deleting user:', err);
+      res.status(500).send('Error deleting user from the database');
+    } else {
+      console.log('User deleted:', username);
+      res.sendStatus(200); // Send a success status code
+    }
+  });
+});
+
 
 app.post("/generate-registration-options", async (req, res) => {
-    try {
+  try {
+    db.beginTransaction((err) => {
+      if (err) {
+        throw err;
+      }
+
       console.log(`Received registration data: ${JSON.stringify(req.body)}`);
       const username = req.body.name;
       req.session.username = username;
-      
-      const hashedPassword = await bcrypt.hash(req.body.password, 10);
-      const sql = "INSERT INTO users (username, password) VALUES (?, ?)";
-      db.query(sql, [username, hashedPassword], (err, result) => {
+
+      bcrypt.hash(req.body.password, 10, (err, hashedPassword) => {
         if (err) {
-          res.status(500).send("Error registering user with password");
-        } else {
-          const user = { id: result.insertId, username };
-          const userAuthenticators = [];
-          const options = generateRegistrationOptions({
-            rpName,
-            rpID,
-            userID: user.id,
-            userName: user.username,
-            attestationType: "direct",
-            excludeCredentials: userAuthenticators.map((authenticator) => ({
-              id: authenticator.credentialID,
-              type: "public-key",
-              transports: authenticator.transports,
-            })),
+          db.rollback(() => {
+            console.error(err);
+            res.status(500).send("Error hashing password");
           });
-  
-          const challenge = options.challenge;
-          //console.log("Wyzwanie zanim zostanie zapisane: "+ challenge)
-          //console.log("userid: "+ user.id)
-          const sql2 = "UPDATE users SET currentChallenge=? WHERE id=?";
-          db.query(sql2, [challenge, user.id], (err, result) => {
+        } else {
+          const sql = "INSERT INTO users (username, password) VALUES (?, ?)";
+          db.query(sql, [username, hashedPassword], (err, result) => {
             if (err) {
-              res.status(500).send("Error updating current challenge");
+              db.rollback(() => {
+                console.error(err);
+                res.status(500).json({ error: "Error registering user with password" });
+              });
             } else {
-              res.json(options);
-              console.log(options)
+              const user = { id: result.insertId, username };
+              const userAuthenticators = [];
+              const options = generateRegistrationOptions({
+                rpName,
+                rpID,
+                userID: user.id,
+                userName: user.username,
+                attestationType: "direct",
+                excludeCredentials: userAuthenticators.map((authenticator) => ({
+                  id: authenticator.credentialID,
+                  type: "public-key",
+                  transports: authenticator.transports,
+                })),
+              });
+
+              const challenge = options.challenge;
+              const sql2 = "UPDATE users SET currentChallenge=? WHERE id=?";
+              db.query(sql2, [challenge, user.id], (err, result) => {
+                if (err) {
+                  db.rollback(() => {
+                    console.error(err);
+                    res.status(500).send("Error updating current challenge");
+                  });
+                } else {
+                  db.commit((err) => {
+                    if (err) {
+                      db.rollback(() => {
+                        console.error(err);
+                        res.status(500).send("Error committing transaction");
+                      });
+                    } else {
+                      res.json(options);
+                      console.log(options);
+                      console.log("Pomyślnie wysłano opcje");
+                    }
+                  });
+                }
+              });
             }
           });
         }
       });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({error: "Error registering user"});
-    }
-  });
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error registering user: "+ error });
+  }
+});
 
 app.post('/verify-registration', async (req, res) => {
   //console.log(`Received data from key: ${JSON.stringify(req.body)}`);
