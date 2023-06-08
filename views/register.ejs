@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>User Registration</title>
+  </head>
+  <body>
+    <h1>User Registration</h1>
+    <form>
+      <label>
+        Username:
+        <input type="text" name="username" required />
+      </label>
+      <br />
+      <label>
+        Password:
+        <input type="password" name="password" required />
+      </label>
+      <br />
+      <button type="submit">Register</button>
+    </form>
+    
+    <a href="/login">Login Page</a>
+    <div id="result"></div>
+    <p>Wyzwanie oraz opcje które zostaną wysłane do klucza</p>
+    <pre id="json-output-from-serwer"></pre>
+    <p>
+      Dane otrzymane od klucza:
+    </p>
+    <pre id="json-output-from-auth"></pre>
+    <p>
+      Weryfikacja wyzwanie/odpowiedz:
+    </p>
+    <p id="success"></p>
+    <p id="error"></p>
+
+    <script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.es5.umd.min.js"></script>
+
+    <script>
+      const { startAuthentication } = SimpleWebAuthnBrowser;
+      const { browserSupportsWebAuthn, startRegistration } = SimpleWebAuthnBrowser;
+      
+      const form = document.querySelector('form');
+      const resultDiv = document.getElementById('result');
+      const jsonOutputSerwer = document.getElementById("json-output-from-serwer");
+      const jsonOutputAuth = document.getElementById("json-output-from-auth");
+      const elemSuccess = document.getElementById('success');
+      const elemError = document.getElementById('error');
+
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const username = event.target.elements.username.value;
+        const password = event.target.elements.password.value;
+
+        console.log(`Sending registration data: ${JSON.stringify({ username, password })}`);
+
+        let attResp;
+        try {
+          const response = await fetch('/generate-registration-options', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name: username, password }),
+          })
+          
+          if (!response.ok) {
+            resultDiv.innerHTML = `Error: ${await response.text()}`;
+            throw new Error('Network response was not ok');
+          }
+          const data = await response.json(); // Parse the response data as JSON
+        
+          // Log the response data returned by the server
+          console.log('Wygenerowane opcje rejestracyjne: ');
+          console.log(data);
+          jsonOutputSerwer.textContent = JSON.stringify(data, null, 2);
+        
+          attResp = await startRegistration(data);
+          jsonOutputAuth.textContent = JSON.stringify(attResp, null, 2);
+
+          const verificationResp = await fetch('/verify-registration', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(attResp),
+          });
+      
+          // Wait for the results of verification
+          const verificationJSON = await verificationResp.json();
+          
+          console.log(verificationJSON);
+          console.log('Otrzymaliśmy weryfikacje');
+
+          elemError.innerHTML = `Response:${JSON.stringify( verificationJSON,)}`;
+      
+          // Show UI appropriate for the `verified` status
+          if (verificationJSON && verificationJSON.verified) {
+            elemSuccess.innerHTML = 'Success!';
+          } else {
+            elemError.innerHTML = `Oh no, something went wrong! Response: <pre>${JSON.stringify(
+              verificationJSON,
+            )}</pre>`;
+          }
+        
+
+          
+        } catch (error) {
+          console.error(error);
+          resultDiv.innerHTML = 'Error registering user';
+        }
+      });
+
+    </script>
+  </body>
+</html>

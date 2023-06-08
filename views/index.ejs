@@ -1,0 +1,79 @@
+<html>
+  <head>
+    <title>After login page</title>
+  </head>
+  <body>
+    <h1 id="usernameDisplay">Hi <%=name %>, start Authentication process</h1>
+    <form action="/logout?_method=DELETE" method="POST">
+      <button type="submit">Log Out</button>
+    </form>
+    <button type="submit" id="btnBegin">Start Authentication</button>
+    <p id="success"></p>
+    <p id="error"></p>
+  </body>
+</html>
+
+<script src="https://unpkg.com/@simplewebauthn/browser/dist/bundle/index.es5.umd.min.js"></script>
+
+<script>
+  const { startAuthentication } = SimpleWebAuthnBrowser;
+
+  const elemBegin = document.getElementById('btnBegin');
+  const elemSuccess = document.getElementById('success');
+  const elemError = document.getElementById('error');
+  
+  elemBegin.addEventListener('click', async () => {
+    event.preventDefault();
+
+    // GET authentication options from the endpoint that calls
+    // @simplewebauthn/server -> generateAuthenticationOptions()
+    const resp = await fetch('/generate-authentication-options');
+    const data = await resp.json();
+    console.log(data);
+
+    let asseResp;
+    try {
+       //Pass the options to the authenticator and wait for a response
+      asseResp = await startAuthentication(data);
+      console.log(asseResp);
+    } catch (error) {
+       //Some basic error handling
+      elemError.innerText = error;
+      throw error;
+    }
+
+    const verificationResp = await fetch('/verify-authentication', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(asseResp),
+    });
+
+    // Wait for the results of verification
+    const verificationJSON = await verificationResp.json();
+
+    // Show UI appropriate for the `verified` status
+    if (verificationJSON && verificationJSON.verified) {
+      elemSuccess.innerHTML = 'Success!';
+    } else {
+      elemError.innerHTML = `Oh no, something went wrong! Response: <pre>${JSON.stringify(
+        verificationJSON,
+      )}</pre>`;
+    }
+
+  });
+
+</script>
+
+<script>
+  // Function to display username
+  function displayUsername() {
+    const username = '<%=name %>'
+    console.log(username);
+    return username;
+  }
+</script>
+
+<!-- Add a button to trigger the displayUsername() function -->
+<button onclick="displayUsername()">Show username</button>
