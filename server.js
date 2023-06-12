@@ -140,7 +140,7 @@ app.get("/generate-authentication-options", async (req, res) => {
       const options = generateAuthenticationOptions({
         allowCredentials,
         timeout: 60000,
-        userVerification: 'discouraged',
+        userVerification: 'preferred',
         rpID,
       });
     
@@ -171,7 +171,6 @@ app.post('/verify-authentication', async (req, res) => {
     return res.status(401).send('User not authenticated');
   }
   const { id } = req.user;
-
   const { body } = req;
 
   const sql = 'SELECT id, currentChallenge FROM users WHERE id = ?';
@@ -188,7 +187,6 @@ app.post('/verify-authentication', async (req, res) => {
   
     const expectedChallenge = rows[0].currentChallenge;
     console.log(expectedChallenge);
-  
     console.log("Body id= " + body.id);
   
     let credentialID, credentialPublicKey;
@@ -232,15 +230,31 @@ app.post('/verify-authentication', async (req, res) => {
     }
   
     const { verified } = verification;
+    const { authenticationInfo } = verification;
+    const { newCounter } = authenticationInfo;
     console.log('VERIFICATION DATA:', verification);
+
+    // Update the user's authenticator's counter property in the DB
+    try {
+      const result = await new Promise((resolve, reject) => {
+        db.query('UPDATE authenticators SET counter = ? WHERE credentialID = ?',
+          [newCounter, credentialID],
+          (err, result) => {
+            if (err) return reject(err);
+            resolve(result);
+          });
+      });
+    } catch (error) {
+      console.error('Error while updating authenticators:', error);
+      return res.status(500).send({ error: 'Internal Server Error' });
+    }
+
     return res.send({ verified });
   
   } catch (err) {
     console.error('Weryfikacja nie powiodła się:'+ err);
     return;
   }
-    
-
 });
 
 app.post("/generate-registration-options", async (req, res) => {
@@ -281,7 +295,7 @@ app.post("/generate-registration-options", async (req, res) => {
                 authenticatorSelection: 
                 {
                   residentKey: "preferred",
-                  userVerification: 'discouraged',
+                  userVerification: 'preferred',
                   requireResidentKey: false
                 },
                 excludeCredentials: userAuthenticators.map((authenticator) => ({
