@@ -26,6 +26,7 @@ const {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } = require("@simplewebauthn/server");
+const { decodeAttestationObject } = require('@simplewebauthn/server/dist/helpers/decodeAttestationObject');
 
 
 const db = mysql.createConnection({
@@ -290,14 +291,24 @@ app.post("/generate-registration-options", async (req, res) => {
                 rpID,
                 userID: user.id,
                 userName: user.username,
+                userDisplayName: user.username,
                 attestationType: "direct",
-                //authenticatorSelection: userVerification = "discouraged",
+                timeout: 60000,
                 authenticatorSelection: 
                 {
+                  authenticatorAttachment: "cross-platform",
                   residentKey: "preferred",
                   userVerification: 'preferred',
                   requireResidentKey: false
                 },
+                extensions:
+                {
+                  //appid: string;
+                  credProps: true,
+                  //hmacCreateSecret: boolean;
+                },
+                //challenge?: string | Uint8Array;
+                //supportedAlgorithmIDs: COSEAlgorithmIdentifier[],
                 excludeCredentials: userAuthenticators.map((authenticator) => ({
                   id: authenticator.credentialID,
                   type: "public-key",
@@ -379,6 +390,11 @@ app.post('/verify-registration', async (req, res) => {
       return res.status(400).send({ error: 'Registration verification failed' });
     }
 
+    console.log('Dane weryfikacji', verification);
+
+    const decodedAttestationObject = decodeAttestationObject(registrationInfo.attestationObject)
+    console.log('Odkodowane dane attestacji:', decodedAttestationObject);
+
     const { credentialPublicKey, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
 
     const base64UrlCredentialID = Buffer.from(registrationInfo.credentialID)
@@ -394,9 +410,8 @@ app.post('/verify-registration', async (req, res) => {
     for (let i = 0; i < binaryStr.length; i++) {
       bytes[i] = binaryStr.charCodeAt(i);
     }
-    const TESTcredentialID = bytes;
-
-    console.log('Sprawdzenie poprawności zmiany z base64 ', TESTcredentialID);
+    //const TESTcredentialID = bytes;
+    //console.log('Sprawdzenie poprawności zmiany z base64 ', TESTcredentialID);
 
     const sql3 = "INSERT INTO authenticators (credentialID, credentialPublicKey, counter, credentialDeviceType, credentialBackedUp, transports, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
     const values = [
