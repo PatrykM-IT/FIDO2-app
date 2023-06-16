@@ -188,7 +188,7 @@ app.post('/verify-authentication', async (req, res) => {
   
     const expectedChallenge = rows[0].currentChallenge;
     console.log(expectedChallenge);
-    console.log("Body id= " + body.id);
+    //console.log("Body id= " + body.id);
   
     let credentialID, credentialPublicKey;
     try {
@@ -205,7 +205,7 @@ app.post('/verify-authentication', async (req, res) => {
       if (results.length > 0) {
         credentialID = results[0].credentialID;
         credentialPublicKey = results[0].credentialPublicKey;
-        console.log(`Credential ID ${credentialID} found.`);
+        //console.log(`Credential ID ${credentialID} found.`);
         //console.log(`credentialPublicKey ${credentialPublicKey} found.`);
       } else {
         console.log('Credential ID not found.');
@@ -224,6 +224,7 @@ app.post('/verify-authentication', async (req, res) => {
         expectedRPID: rpID,
         authenticator: { credentialID, credentialPublicKey },
         requireUserVerification: false,
+        requireUserPresent: false,
       });
     } catch (error) {
       console.error(error);
@@ -292,12 +293,12 @@ app.post("/generate-registration-options", async (req, res) => {
                 userID: user.id,
                 userName: user.username,
                 userDisplayName: user.username,
-                attestationType: "direct",
-                timeout: 60000,
+                attestationType: 'enterprise',
+                timeout: 30000,
                 authenticatorSelection: 
                 {
-                  authenticatorAttachment: "cross-platform",
-                  residentKey: "preferred",
+                  authenticatorAttachment: 'cross-platform',
+                  residentKey: "discouraged",
                   userVerification: 'preferred',
                   requireResidentKey: false
                 },
