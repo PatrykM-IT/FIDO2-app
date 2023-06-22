@@ -7,6 +7,7 @@ Celem pracy magisterskiej jest implementacja oraz analiza protokołu FIDO2 z wyk
 # Wymagania systemowe
 
 Do skompilowania i uruchomienia projektu wymagane są:
+- połączenie z internetem
 - komputer z zainstalowanym 64-bitowym systemem operacyjnym,
 - zainstalowany framework node.js w wersji v18.14.1 lub wyższym,
 - przeglądarka internetowa obsługująca JavaScript.
