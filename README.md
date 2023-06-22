@@ -20,7 +20,7 @@ Do skompilowania i uruchomienia projektu wymagane są:
 
 Konto oraz hasło użyte podczas konfiguracji serwera MySQL będą użyte w połączeniu z bazą w kodzie.
 Po skonfigurowaniu serwera należy stowrzyć baze danych wraz z tablicami, zaleca się do tego celu skorzystanie z MySQL MySQL Workbench.
-
+```
 CREATE DATABASE twojaBaza;
 USE twojaBaza;
 
@@ -44,7 +44,7 @@ CREATE TABLE authenticators (
   INDEX credentialID_index (credentialID(255)),
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
-
+```
 ## Instalacja
 
 1. Otwórz wiersz poleceń/terminal w folderze z plikami repozytorium
@@ -52,12 +52,14 @@ CREATE TABLE authenticators (
 
 3. Następnie w plikach: serwer.js oraz passport-config.js wprowadź dane do połączenia z bazą:
 
+```
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
   password: "twojeHaslo",
   database: "twojaBaza",
 });
+```
 
 ## Uruchomienie
 
