@@ -22,14 +22,14 @@
     
     <a href="/login">Login Page</a>
     <div id="result"></div>
-    <p>Wyzwanie oraz opcje które zostaną wysłane do klucza</p>
+    <p>The challenge and options that will be sent to the authenticator</p>
     <pre id="json-output-from-serwer"></pre>
     <p>
-      Dane otrzymane od klucza:
+      Authenticator response:
     </p>
     <pre id="json-output-from-auth"></pre>
     <p>
-      Weryfikacja wyzwanie/odpowiedz:
+      Verification:
     </p>
     <p id="success"></p>
     <p id="error"></p>
@@ -69,13 +69,13 @@
           if (!response.ok) {
             const errorText = await response.text();
             resultDiv.innerHTML = `${errorText}`;
-            throw new Error('Nie udało się utworzyć konta');
+            throw new Error('Account creation failed.');
           }
           
           const data = await response.json(); // Parse the response data as JSON
         
           // Log the response data returned by the server
-          console.log('Wygenerowane opcje rejestracyjne: ');
+          console.log('Generated registration options: ');
           console.log(data);
           jsonOutputSerwer.textContent = JSON.stringify(data, null, 2);
         
@@ -94,7 +94,7 @@
           const verificationJSON = await verificationResp.json();
           
           console.log(verificationJSON);
-          console.log('Otrzymaliśmy weryfikacje');
+          console.log('Verification: ');
 
           elemError.innerHTML = `Response:${JSON.stringify( verificationJSON,)}`;
       

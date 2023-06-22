@@ -8,10 +8,10 @@
       <button type="submit">Log Out</button>
     </form>
     <button type="submit" id="btnBegin">Start Authentication</button>
-    <p>Wyzwanie oraz opcje które zostaną wysłane do klucza</p>
+    <p>The challenge and options that will be sent to the authenticator.</p>
     <pre id="json-output-from-serwer"></pre>
     <p>
-      Dane otrzymane od klucza:
+      Authenticator response:
     </p>
     <pre id="json-output-from-auth"></pre>
     <p>
@@ -39,7 +39,7 @@
     const resp = await fetch('/generate-authentication-options');
     const data = await resp.json();
 
-    console.log('Wygenerowane opcje uwierz: ');
+    console.log('Generated authentication options: ');
     console.log(data);
     jsonOutputSerwer.textContent = JSON.stringify(data, null, 2);
 
@@ -53,7 +53,7 @@
       elemError.innerText = error;
       throw error;
     }
-    console.log('Odpowiedz auth: ');
+    console.log('Authenticator response: ');
     jsonOutputAuth.textContent = JSON.stringify(asseResp, null, 2);
 
     const verificationResp = await fetch('/verify-authentication', {
@@ -80,14 +80,3 @@
 
 </script>
 
-<script>
-  // Function to display username
-  function displayUsername() {
-    const username = '<%=name %>'
-    console.log(username);
-    return username;
-  }
-</script>
-
-<!-- Add a button to trigger the displayUsername() function -->
-<button onclick="displayUsername()">Show username</button>
