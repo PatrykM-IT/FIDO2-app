@@ -8,6 +8,13 @@
       <button type="submit">Log Out</button>
     </form>
     <button type="submit" id="btnBegin">Start Authentication</button>
+    <p>The challenge and options that will be sent to the authenticator.</p>
+    <pre id="json-output-from-serwer"></pre>
+    <p>
+      Authenticator response:
+    </p>
+    <pre id="json-output-from-auth"></pre>
+    <p>
     <p id="success"></p>
     <p id="error"></p>
   </body>
@@ -21,6 +28,8 @@
   const elemBegin = document.getElementById('btnBegin');
   const elemSuccess = document.getElementById('success');
   const elemError = document.getElementById('error');
+  const jsonOutputSerwer = document.getElementById("json-output-from-serwer");
+  const jsonOutputAuth = document.getElementById("json-output-from-auth");
   
   elemBegin.addEventListener('click', async () => {
     event.preventDefault();
@@ -29,7 +38,10 @@
     // @simplewebauthn/server -> generateAuthenticationOptions()
     const resp = await fetch('/generate-authentication-options');
     const data = await resp.json();
+
+    console.log('Generated authentication options: ');
     console.log(data);
+    jsonOutputSerwer.textContent = JSON.stringify(data, null, 2);
 
     let asseResp;
     try {
@@ -41,6 +53,8 @@
       elemError.innerText = error;
       throw error;
     }
+    console.log('Authenticator response: ');
+    jsonOutputAuth.textContent = JSON.stringify(asseResp, null, 2);
 
     const verificationResp = await fetch('/verify-authentication', {
       method: 'POST',
@@ -66,14 +80,3 @@
 
 </script>
 
-<script>
-  // Function to display username
-  function displayUsername() {
-    const username = '<%=name %>'
-    console.log(username);
-    return username;
-  }
-</script>
-
-<!-- Add a button to trigger the displayUsername() function -->
-<button onclick="displayUsername()">Show username</button>

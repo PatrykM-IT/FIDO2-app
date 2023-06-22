@@ -8,7 +8,6 @@ const mysql = require('mysql2');
 const initializePassport = require('./passport-config')
 const methodOverride = require('method-override')
 
-
 // Human-readable title for your website
 const rpName = 'SimpleWebAuthn Example';
 // A unique identifier for your website
@@ -25,16 +24,16 @@ const {
   // Authentication
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
+  //Metadata
+  MetadataService,
 } = require("@simplewebauthn/server");
-const { decodeAttestationObject } = require('@simplewebauthn/server/dist/helpers/decodeAttestationObject');
-
 
 const db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "Qwerty123",
-    database: "test_fido",
-  });
+  host: "localhost",
+  user: "root",
+  password: "password",
+  database: "FIDO",
+});
 
 db.connect((err) => {
     if (err) {
@@ -57,10 +56,16 @@ app.use(passport.initialize())
 app.use(passport.session())
 app.use(methodOverride('_method'))
 
-
 // Initialize passport configuration using the findUserByUsername function
 initializePassport(passport) 
 
+//MDS not fully implemented
+MetadataService.initialize({
+  mdsServers: ['https://mds3.fidoalliance.org/'],
+  verificationMode:'permissive',
+}).then(() => {
+  console.log('🔐 MetadataService initialized');
+});
 
 app.get('/', checkAuthenticated, (req, res) => {
     res.render('index.ejs', { name: req.user.username})
@@ -93,7 +98,6 @@ app.delete('/logout', (req, res) => {
     res.redirect('/login');
   });
 });
-
 
 app.get("/generate-authentication-options", async (req, res) => {
 
@@ -141,7 +145,7 @@ app.get("/generate-authentication-options", async (req, res) => {
       const options = generateAuthenticationOptions({
         allowCredentials,
         timeout: 60000,
-        userVerification: 'preferred',
+        userVerification: 'required',
         rpID,
       });
     
@@ -188,7 +192,7 @@ app.post('/verify-authentication', async (req, res) => {
   
     const expectedChallenge = rows[0].currentChallenge;
     console.log(expectedChallenge);
-    console.log("Body id= " + body.id);
+    //console.log("Body id= " + body.id);
   
     let credentialID, credentialPublicKey;
     try {
@@ -205,7 +209,7 @@ app.post('/verify-authentication', async (req, res) => {
       if (results.length > 0) {
         credentialID = results[0].credentialID;
         credentialPublicKey = results[0].credentialPublicKey;
-        console.log(`Credential ID ${credentialID} found.`);
+        //console.log(`Credential ID ${credentialID} found.`);
         //console.log(`credentialPublicKey ${credentialPublicKey} found.`);
       } else {
         console.log('Credential ID not found.');
@@ -223,7 +227,7 @@ app.post('/verify-authentication', async (req, res) => {
         expectedOrigin: origin,
         expectedRPID: rpID,
         authenticator: { credentialID, credentialPublicKey },
-        requireUserVerification: false,
+        requireUserVerification: true,
       });
     } catch (error) {
       console.error(error);
@@ -292,13 +296,13 @@ app.post("/generate-registration-options", async (req, res) => {
                 userID: user.id,
                 userName: user.username,
                 userDisplayName: user.username,
-                attestationType: "direct",
+                attestationType: 'direct',
                 timeout: 60000,
                 authenticatorSelection: 
                 {
-                  authenticatorAttachment: "cross-platform",
-                  residentKey: "preferred",
-                  userVerification: 'preferred',
+                  authenticatorAttachment: 'cross-platform',
+                  residentKey: 'preferred',
+                  userVerification: 'required',
                   requireResidentKey: false
                 },
                 extensions:
@@ -353,6 +357,7 @@ app.post("/generate-registration-options", async (req, res) => {
 app.post('/verify-registration', async (req, res) => {
   const user = req.session.username;
   const sql = 'SELECT id, currentChallenge FROM users WHERE username = ?';
+  
 
   try {
     const rows = await new Promise((resolve, reject) => {
@@ -377,23 +382,20 @@ app.post('/verify-registration', async (req, res) => {
         expectedChallenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
-        requireUserVerification: false,
+        requireUserVerification: true,
       });
     } catch (error) {
       console.error(error);
       return res.status(400).send({ error: error.message });
     }
 
-    const { verified, registrationInfo } = verification;
-
+    const { verified, registrationInfo,} = verification;
+  
     if (!verified) {
       return res.status(400).send({ error: 'Registration verification failed' });
     }
 
     console.log('Dane weryfikacji', verification);
-
-    const decodedAttestationObject = decodeAttestationObject(registrationInfo.attestationObject)
-    console.log('Odkodowane dane attestacji:', decodedAttestationObject);
 
     const { credentialPublicKey, counter, credentialDeviceType, credentialBackedUp } = registrationInfo;
 
